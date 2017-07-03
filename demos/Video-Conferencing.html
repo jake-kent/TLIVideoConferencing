@@ -51,11 +51,12 @@
     <div id="videos-container"></div>
   </section>
 
-<script src="/dist/RTCMultiConnection.min.js"></script>
+<script src="/dist/RTCMultiConnection.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 
 <!-- custom layout for HTML5 audio/video elements -->
 <script src="https://cdn.webrtc-experiment.com/getMediaElement.js"></script>
+<script src="https://cdn.webrtc-experiment.com/RecordRTC.js"></script>
 <script>
 var isPresenter = false;
 var presenterId;
@@ -129,7 +130,10 @@ connection.onstream = function(event) {
         buttons: ['full-screen'],
         width: width,
         showOnMouseEnter: false
-    });
+      });
+    if (event.userid == connection.sessionid) {
+      connection.videosContainer.append(recVideoStart(mediaElement, event.streamid));
+    }
 
     connection.videosContainer.appendChild(mediaElement);
 
@@ -158,6 +162,46 @@ connection.onstream = function(event) {
   }
     
 };
+
+function recVideoStart(video, streamid) {
+    var div = document.createElement('div');
+    div.className = 'video-container';
+    var button = document.createElement('button');
+    button.id = streamid;
+    button.innerHTML = 'Start Recording';
+    button.onclick = function() {
+        this.disabled = true;
+        if (this.innerHTML == 'Start Recording') {
+            this.innerHTML = 'Stop Recording';
+            connection.streamEvents[this.id].mediaElement.startRecording({
+                audio: true,
+                video: true
+            });
+        } else {
+            this.innerHTML = 'Start Recording';
+            var stream = connection.streamEvents[this.id].mediaElement;
+            stream.stopRecording(function(blob) {
+                var h2;
+                if (blob.audio && !(connection.UA.Chrome && stream.type == 'remote')) {
+                    h2 = document.createElement('h2');
+                    h2.innerHTML = '<a href="' + URL.createObjectURL(blob.audio) + '" target="_blank">Open recorded ' + blob.audio.type + '</a>';
+                    div.appendChild(h2);
+                }
+                if (blob.video) {
+                    h2 = document.createElement('h2');
+                    h2.innerHTML = '<a href="' + URL.createObjectURL(blob.video) + '" target="_blank">Open recorded ' + blob.video.type + '</a>';
+                    div.appendChild(h2);
+                }
+            });
+        }
+        setTimeout(function() {
+            button.disabled = false;
+        }, 3000);
+    };
+    div.appendChild(button);
+    div.appendChild(video);
+    return div;
+}
 
 connection.onstreamended = function(event) {
     var mediaElement = document.getElementById(event.streamid);
